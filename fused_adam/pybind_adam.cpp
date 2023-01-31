@@ -1,6 +1,6 @@
 #include <torch/extension.h>
 
-#include "fused_adam_kernel.h"
+#include "../include/fused_adam_kernel.h"
 
 // x is torch::Tensor
 #define CHECK_CUDA(x) AT_ASSERTM(x.is_cuda(), #x " must be a CUDA tensor")

@@ -1,6 +1,6 @@
 import torch
 import sys
-sys.path.append("../..") 
+sys.path.append("../../..") 
 from pytorch.DeepSpeed.builder import CUDAOpBuilder
 
 fused_adam_cuda = None
@@ -195,7 +195,7 @@ class AdamBuilder(CUDAOpBuilder):
         ]
 
     def include_paths(self):
-        return ["csrc/kernels/includes", "csrc/ops/includes", "csrc/layers/includes"]
+        return ["fused_adam/include"]
 
     def nvcc_args(self):
         args = [

@@ -1,7 +1,7 @@
 from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
-nvcc_args = ['-maxrregcount=18']
+nvcc_args = ['-maxrregcount=16']
 
 setup(
     name='fused_adam',

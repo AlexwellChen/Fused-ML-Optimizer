@@ -5,7 +5,7 @@ nvcc = /usr/local/cuda-10.2/bin/nvcc
 cflags = -pthread -B /home/jetson/miniforge3/envs/py36/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include/torch/csrc/api/include -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include/TH -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include/THC -I/usr/local/cuda-10.2/include -I/home/jetson/miniforge3/envs/py36/include/python3.6m -c
 post_cflags = -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1011"' -DTORCH_EXTENSION_NAME=fused_adam -D_GLIBCXX_USE_CXX11_ABI=1 -std=c++14
 cuda_cflags = -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include/torch/csrc/api/include -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include/TH -I/home/jetson/miniforge3/envs/py36/lib/python3.6/site-packages/torch/include/THC -I/usr/local/cuda-10.2/include -I/home/jetson/miniforge3/envs/py36/include/python3.6m -c
-cuda_post_cflags = -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options ''"'"'-fPIC'"'"'' -maxrregcount=18 -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1011"' -DTORCH_EXTENSION_NAME=fused_adam -D_GLIBCXX_USE_CXX11_ABI=1 -gencode=arch=compute_53,code=compute_53 -gencode=arch=compute_53,code=sm_53 -std=c++14
+cuda_post_cflags = -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options ''"'"'-fPIC'"'"'' -maxrregcount=16 -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1011"' -DTORCH_EXTENSION_NAME=fused_adam -D_GLIBCXX_USE_CXX11_ABI=1 -gencode=arch=compute_53,code=compute_53 -gencode=arch=compute_53,code=sm_53 -std=c++14
 ldflags = 
 
 rule compile
@@ -20,8 +20,8 @@ rule cuda_compile
 
 
 
-build /home/jetson/Desktop/pytorch/fused_adam/build/temp.linux-aarch64-3.6/pybind_adam.o: compile /home/jetson/Desktop/pytorch/fused_adam/pybind_adam.cpp
-build /home/jetson/Desktop/pytorch/fused_adam/build/temp.linux-aarch64-3.6/fused_adam_kernel.o: cuda_compile /home/jetson/Desktop/pytorch/fused_adam/fused_adam_kernel.cu
+build /home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adam/build/temp.linux-aarch64-3.6/pybind_adam.o: compile /home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adam/pybind_adam.cpp
+build /home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adam/build/temp.linux-aarch64-3.6/fused_adam_kernel.o: cuda_compile /home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adam/fused_adam_kernel.cu
 
 
 
