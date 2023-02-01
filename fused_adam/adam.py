@@ -1,7 +1,6 @@
 import torch
-import sys
-sys.path.append("../../..") 
-from pytorch.DeepSpeed.builder import CUDAOpBuilder
+
+import fused_adam
 
 fused_adam_cuda = None
 
@@ -47,7 +46,7 @@ class LSAdam(torch.optim.Optimizer):
         global fused_adam_cuda
 
         if fused_adam_cuda is None:
-            fused_adam_cuda = AdamBuilder().load()
+            fused_adam_cuda = fused_adam
 
         if amsgrad:
             raise RuntimeError("LSAdam does not support the AMSGrad variant.")
@@ -160,54 +159,21 @@ class LSAdam(torch.optim.Optimizer):
                 out_p = p.data
                 with torch.cuda.device(p.device):
                     fused_adam_cuda.adam(
-                        p_data_fp32,
-                        out_p,
-                        exp_avg,
-                        exp_avg_sq,
-                        grad,
-                        group["lr"],
-                        beta1,
-                        beta2,
-                        group["eps"],
-                        combined_scale,
-                        state["step"],
-                        self.eps_mode,
-                        bias_correction,
-                        group["weight_decay"],
+                        p_data_fp32,    // p            at::Tensor
+                        out_p,          // p_copy       at::Tensor
+                        exp_avg,        // m            at::Tensor
+                        exp_avg_sq,     // v            at::Tensor
+                        grad,           // g            at::Tensor
+                        group["lr"],    // lr           float
+                        beta1,          // beta1        float
+                        beta2,          // beta2        float
+                        group["eps"],   // eps          float     
+                        combined_scale, // grad_scale   float
+                        state["step"],  // step         int
+                        self.eps_mode,  // mode         int
+                        bias_correction,// bias_correction int
+                        group["weight_decay"],// decay  float
                     )
 
         return loss
 
-class AdamBuilder(CUDAOpBuilder):
-    NAME = "adam"
-
-    def __init__(self, name=None):
-        name = self.NAME if name is None else name
-        super().__init__(name=name)
-
-    def absolute_name(self):
-        return f"op_builder.{self.NAME}_op"
-
-    def sources(self):
-        return [
-            "fused_adam/fused_adam_kernel.cu",
-            "fused_adam/pybind_adam.cpp",
-        ]
-
-    def include_paths(self):
-        return ["fused_adam/include"]
-
-    def nvcc_args(self):
-        args = [
-            "-O3",
-            "--use_fast_math",
-            "-std=c++14",
-            "-U__CUDA_NO_HALF_OPERATORS__",
-            "-U__CUDA_NO_HALF_CONVERSIONS__",
-            "-U__CUDA_NO_HALF2_OPERATORS__",
-        ]
-
-        return args + self.compute_capability_args()
-
-    def cxx_args(self):
-        return ["-O3", "-std=c++14", "-g", "-Wno-reorder"]

@@ -12,26 +12,32 @@
 
 // C++ interface
 
-void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avgs, at::Tensor& exp_avg_sqs, at::Tensor& exp_avgs_diffs,
+void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, at::Tensor& exp_avg_sq, at::Tensor& diff,
           at::Tensor& pre_g, float beta1, float beta2, float beta3, float bias_correction1, float bias_correction2, float bias_correction3_sqrt, 
-          float lr, float weight_decay, float eps, bool no_prox, float clip_global_grad_norm) {
+          float lr, float decay, float eps, bool no_prox, float grad_scale) {
   CHECK_INPUT(p);
   if (p_copy.numel() > 0) CHECK_INPUT(p_copy);
-  CHECK_INPUT(m);
-  CHECK_INPUT(v);
+  CHECK_INPUT(exp_avg);
+  CHECK_INPUT(exp_avg_sq);
+  CHECK_INPUT(diff)
   CHECK_INPUT(g);
+  CHECK_INPUT(pre_g);
   int64_t num_elem = p.numel();
-  AT_ASSERTM(m.numel() == num_elem,
-             "number of elements in m and p tensors should be equal");
-  AT_ASSERTM(v.numel() == num_elem,
-             "number of elements in v and p tensors should be equal");
+  AT_ASSERTM(exp_avg.numel() == num_elem,
+             "number of elements in exp_avg and p tensors should be equal");
+  AT_ASSERTM(exp_avg_sq.numel() == num_elem,
+             "number of elements in exp_avg_sq and p tensors should be equal");
+  AT_ASSERTM(diff.numel() == num_elem,
+             "number of elements in diff and p tensors should be equal");
   AT_ASSERTM(g.numel() == num_elem,
              "number of elements in g and p tensors should be equal");
+  AT_ASSERTM(pre_g.numel() == num_elem,
+             "number of elements in pre_g and p tensors should be equal");
   AT_ASSERTM(p_copy.numel() == num_elem || p_copy.numel() == 0,
              "number of elements in p_copy and p tensors should be equal, or "
              "p_copy should be empty");
 
-  fused_adam_cuda(p, p_copy, m, v, g, lr, beta1, beta2, eps, grad_scale, step,
+  fused_adan_cuda(p, p_copy, m, v, g, lr, beta1, beta2, eps, grad_scale, step,
                   mode, bias_correction, decay);
 }
 

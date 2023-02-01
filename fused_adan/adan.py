@@ -4,7 +4,6 @@ import fused_adan
 
 fused_adan_cuda = None
 
-
 class Adan(torch.optim.Optimizer):
     """
     Modified from Fairseq and Use LightSeq adan kernel.
@@ -314,11 +313,7 @@ class Adan(Optimizer):
         ):
             if grads_this_group is None:
                 grads_this_group = [None] * len(group["params"])
-            # grads = []
-            # exp_avgs = []
-            # exp_avg_sqs = []
-            # exp_avg_diffs = []
-            # pre_grads = []
+
              # compute combined scale factor for this group
             combined_scale = scale
             if group.get("max_grad_norm", 0) > 0:
@@ -370,32 +365,27 @@ class Adan(Optimizer):
                 
                 out_p = p.data
                 kwargs = dict(
-                    params=p_data_fp32,
-                    params_copy=out_p,
-                    grad=grad,
-                    exp_avg=exp_avg,
-                    exp_avg_sq=exp_avg_sq,
-                    exp_avg_diff=exp_avg_diff,
-                    pre_grad=pre_grad,
-                    beta1=beta1,
-                    beta2=beta2,
-                    beta3=beta3,
-                    bias_correction1=bias_correction1,
-                    bias_correction2=bias_correction2,
-                    bias_correction3_sqrt=math.sqrt(bias_correction3),
-                    lr=group['lr'],
-                    weight_decay=group['weight_decay'],
-                    eps=group['eps'],
-                    no_prox=group['no_prox'],
-                    scale=combined_scale,
+                    params=p_data_fp32, // p            at::Tensor
+                    params_copy=out_p,  // p_copy       at::Tensor
+                    grad=grad,          // g            at::Tensor
+                    exp_avg=exp_avg,    // exp_avg      at::Tensor            
+                    exp_avg_sq=exp_avg_sq,// exp_avg_sq at::Tensor
+                    exp_avg_diff=exp_avg_diff,// diff   at::Tensor
+                    pre_grad=pre_grad,  // pre_g        at::Tensor
+                    beta1=beta1,        // beta1        float
+                    beta2=beta2,        // beta2        float  
+                    beta3=beta3,        // beta3        float
+                    bias_correction1=bias_correction1,  // bias_correction1 float
+                    bias_correction2=bias_correction2,  // bias_correction2 float
+                    bias_correction3_sqrt=math.sqrt(bias_correction3),  // bias_correction3_sqrt float
+                    lr=group['lr'],     // lr           float
+                    weight_decay=group['weight_decay'], // decay float
+                    eps=group['eps'],   // eps          float
+                    no_prox=group['no_prox'], // no_prox bool
+                    scale=combined_scale,// grad_scale  float
                 )
 
                 with torch.cuda.device(p.device):
                     fused_adan_cuda.adan(**kwargs)
             
-            # if group['foreach']:
-            #     _multi_tensor_adan(**kwargs)
-            # else:
-            #     _single_tensor_adan(**kwargs)
-
         return loss
