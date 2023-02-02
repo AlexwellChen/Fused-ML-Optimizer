@@ -14,7 +14,7 @@
 #include "ATen/cuda/CUDAContext.h"
 #include "ATen/cuda/detail/IndexUtils.cuh"
 #include "ATen/cuda/Exceptions.h"
-#include "../include/fused_adam_kernel.h"
+#include "../include/fused_adan_kernel.h"
 #include "../include/multi_tensor_apply.cuh"
 
 typedef enum {
@@ -222,10 +222,10 @@ void apex_fused_adam_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& m,
   }
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  if (g.scalar_type() == at::ScalarType::Half) {
+  if (g.scalar_type() == at::ScalarType::Half) {          // FP16 store gradients
     // all other values should be fp32 for half gradients
     AT_ASSERTM(p.scalar_type() == at::ScalarType::Float,
-               "expected parameter to be of float type");
+               "expected parameter to be of float type"); // FP32 store parameters
     // dispatch is done on the gradient type
     using namespace at;  // prevents "toString is undefined" errors
     DISPATCH_FLOAT_AND_HALF(
