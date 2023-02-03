@@ -185,6 +185,8 @@ class Adan(Optimizer):
                 exp_avg_sq = state["exp_avg_sq"]
                 exp_avg_diff = state["exp_avg_diff"]
                 pre_grad = state["pre_grad"]
+
+                grad_copy = grad.clone()/scale
                 
                 out_p = p.data
                 kwargs = dict(
@@ -211,6 +213,7 @@ class Adan(Optimizer):
                 with torch.cuda.device(p.device):
                     fused_adan_cuda.adan(**kwargs)
 
-                state["pre_grad"] = grad/scale
+                state["pre_grad"] = grad_copy
+                
             
         return loss
