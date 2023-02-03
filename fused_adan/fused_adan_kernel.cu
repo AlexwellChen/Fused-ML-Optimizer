@@ -32,7 +32,7 @@ __global__ void adan_cuda_kernel(
     const GRAD_T* __restrict__ pre_g, const float b1, const float b2, const float b3, 
     const float bias_correction1, const float bias_correction2, const float bias_correction3_sqrt,
     const float lr, const float decay, const float eps, const bool no_prox, const float grad_scale,
-    ) {
+    ){
     int global_id = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (global_id >= total_size) return;
@@ -57,14 +57,16 @@ __global__ void adan_cuda_kernel(
     denom = sqrtf(exp_avg_sq[global_id]) / bias_correction3_sqrt + eps;
     update = (exp_avg[global_id] / bias_correction1 + b2 * exp_avg_diff[global_id] / bias_correction2) / denom;
     
-    if no_prox:
-      // param.mul_(1 - lr * weight_decay)
-      // param.add_(update, alpha=-lr)
-      p[global_id] = p[global_id] * (1 - lr * decay) + update * (-lr);
-    else  
-      // param.add_(update, alpha=-lr)
-      // param.div_(1 + lr * weight_decay)
-      p[global_id] = p[global_id] + update * (-lr) / (1 + lr * decay);
+    if (no_prox){
+        // param.mul_(1 - lr * weight_decay)
+        // param.add_(update, alpha=-lr)
+        p[global_id] = p[global_id] * (1 - lr * decay) + update * (-lr);
+    }else{
+        // param.add_(update, alpha=-lr)
+        // param.div_(1 + lr * weight_decay)
+        p[global_id] = p[global_id] + update * (-lr) / (1 + lr * decay);
+    } 
+     
     
     if (p_copy != NULL) p_copy[global_id] = (GRAD_T)p[global_id];
 }
@@ -141,19 +143,19 @@ __global__ void adan_cuda_kernel<float, float>(
     update3 = (new_exp_avg4.z / bias_correction1 + b2 * new_exp_avg_diff4.z / bias_correction2) / denom4.z;
     update4 = (new_exp_avg4.w / bias_correction1 + b2 * new_exp_avg_diff4.w / bias_correction2) / denom4.w;
 
-    if no_prox:
+    if (no_prox){
         // p[global_id] = p[global_id] * (1 - lr * decay) + update * (-lr);
         new_p4.x = p4.x * (1 - lr * decay) + update1 * (-lr);
         new_p4.y = p4.y * (1 - lr * decay) + update2 * (-lr);
         new_p4.z = p4.z * (1 - lr * decay) + update3 * (-lr);
         new_p4.w = p4.w * (1 - lr * decay) + update4 * (-lr);
-    else:
+    }else{
         // p[global_id] = p[global_id] + update * (-lr) / (1 + lr * decay);
         new_p4.x = p4.x + update1 * (-lr) / (1 + lr * decay);
         new_p4.y = p4.y + update2 * (-lr) / (1 + lr * decay);
         new_p4.z = p4.z + update3 * (-lr) / (1 + lr * decay);
         new_p4.w = p4.w + update4 * (-lr) / (1 + lr * decay);
-    
+    }   
 
     p4_ptr[global_id] = new_p4;
     exp_avg4_ptr[global_id] = new_exp_avg4;
