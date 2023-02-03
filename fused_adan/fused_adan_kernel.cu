@@ -77,7 +77,7 @@ __global__ void adan_cuda_kernel<float, float>(
     const float* __restrict__ g, float* __restrict__ exp_avg, float* __restrict__ exp_avg_sq, float* __restrict__ exp_avg_diff,
     const float* __restrict__ pre_g, const float b1, const float b2, const float b3, 
     const float bias_correction1, const float bias_correction2, const float bias_correction3_sqrt,
-    const float lr, const float decay, const float eps, const bool no_prox, const float grad_scale, const size_t total_size,){
+    const float lr, const float decay, const float eps, const bool no_prox, const float grad_scale, const size_t total_size){
 
         int global_id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -194,7 +194,7 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
                 g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<accscalar_t>(), exp_avg_sq.DATA_PTR<accscalar_t>(),exp_avg_diff.DATA_PTR<accscalar_t>(), 
                 pre_g.DATA_PTR<scalar_t_0>(), 
                 beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
-                lr, decay, eps, no_prox, grad_scale
+                lr, decay, eps, no_prox, grad_scale, total_size
                 );
             );
     } else {
@@ -212,7 +212,7 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
                 g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<scalar_t_0>(), exp_avg_sq.DATA_PTR<scalar_t_0>(),exp_avg_diff.DATA_PTR<scalar_t_0>(), 
                 pre_g.DATA_PTR<scalar_t_0>(), 
                 beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
-                lr, decay, eps, no_prox, grad_scale
+                lr, decay, eps, no_prox, grad_scale, total_size
             );
         );
     }
