@@ -21,7 +21,7 @@ void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg,
   if (p_copy.numel() > 0) CHECK_INPUT(p_copy);
   CHECK_INPUT(exp_avg);
   CHECK_INPUT(exp_avg_sq);
-  CHECK_INPUT(exp_avg_diff)
+  CHECK_INPUT(exp_avg_diff);
   CHECK_INPUT(g);
   CHECK_INPUT(pre_g);
   int64_t num_elem = p.numel();
@@ -39,8 +39,8 @@ void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg,
              "number of elements in p_copy and p tensors should be equal, or "
              "p_copy should be empty");
 
-  fused_adan_cuda(p, p_copy, g, exp_avg,
-                  exp_avg_sq, exp_avg_diff,
+  fused_adan_cuda(p, p_copy, g, 
+                  exp_avg, exp_avg_sq, exp_avg_diff,
                   pre_g, beta1, beta2, beta3,
                   bias_correction1, bias_correction2, bias_correction3_sqrt,
                   lr, decay, eps, no_prox, grad_scale);  
