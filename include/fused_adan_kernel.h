@@ -59,12 +59,8 @@
   }
 
 // CUDA forward declaration
-// void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& m,
-//                      at::Tensor& v, at::Tensor& g, float lr, float beta1,
-//                      float beta2, float eps, float grad_scale, int step,
-//                      int mode, int bias_correction, float decay);
-void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, 
-          at::Tensor& exp_avg_sq, at::Tensor& diff,
+void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, 
+          at::Tensor& exp_avg_sq, at::Tensor& exp_avg_diff,
           at::Tensor& pre_g, float beta1, float beta2, float beta3, 
           float bias_correction1, float bias_correction2, float bias_correction3_sqrt, 
           float lr, float decay, float eps, bool no_prox, float grad_scale);

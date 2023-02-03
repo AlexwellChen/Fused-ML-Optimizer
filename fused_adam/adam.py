@@ -26,9 +26,9 @@ class LSAdam(torch.optim.Optimizer):
             evaluating square root instead of adding it to the square root of
             second moment estimate as in the original paper. (default: False)
     .. _Adam: A Method for Stochastic Optimization:
-        https://arxiv.org/abs/1412.6980
+        https:#arxiv.org/abs/1412.6980
     .. _On the Convergence of Adam and Beyond:
-        https://openreview.net/forum?id=ryQu7f-RZ
+        https:#openreview.net/forum?id=ryQu7f-RZ
     """
 
     def __init__(
@@ -159,20 +159,20 @@ class LSAdam(torch.optim.Optimizer):
                 out_p = p.data
                 with torch.cuda.device(p.device):
                     fused_adam_cuda.adam(
-                        p_data_fp32,    // p            at::Tensor
-                        out_p,          // p_copy       at::Tensor
-                        exp_avg,        // m            at::Tensor
-                        exp_avg_sq,     // v            at::Tensor
-                        grad,           // g            at::Tensor
-                        group["lr"],    // lr           float
-                        beta1,          // beta1        float
-                        beta2,          // beta2        float
-                        group["eps"],   // eps          float     
-                        combined_scale, // grad_scale   float
-                        state["step"],  // step         int
-                        self.eps_mode,  // mode         int
-                        bias_correction,// bias_correction int
-                        group["weight_decay"],// decay  float
+                        p_data_fp32,    # p            at::Tensor
+                        out_p,          # p_copy       at::Tensor
+                        exp_avg,        # m            at::Tensor
+                        exp_avg_sq,     # v            at::Tensor
+                        grad,           # g            at::Tensor
+                        group["lr"],    # lr           float
+                        beta1,          # beta1        float
+                        beta2,          # beta2        float
+                        group["eps"],   # eps          float     
+                        combined_scale, # grad_scale   float
+                        state["step"],  # step         int
+                        self.eps_mode,  # mode         int
+                        bias_correction,# bias_correction int
+                        group["weight_decay"],# decay  float
                     )
 
         return loss

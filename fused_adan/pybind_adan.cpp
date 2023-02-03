@@ -13,7 +13,7 @@
 // C++ interface
 
 void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, 
-          at::Tensor& exp_avg_sq, at::Tensor& diff,
+          at::Tensor& exp_avg_sq, at::Tensor& exp_avg_diff,
           at::Tensor& pre_g, float beta1, float beta2, float beta3, 
           float bias_correction1, float bias_correction2, float bias_correction3_sqrt, 
           float lr, float decay, float eps, bool no_prox, float grad_scale) {
@@ -21,7 +21,7 @@ void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg,
   if (p_copy.numel() > 0) CHECK_INPUT(p_copy);
   CHECK_INPUT(exp_avg);
   CHECK_INPUT(exp_avg_sq);
-  CHECK_INPUT(diff)
+  CHECK_INPUT(exp_avg_diff)
   CHECK_INPUT(g);
   CHECK_INPUT(pre_g);
   int64_t num_elem = p.numel();
@@ -29,8 +29,8 @@ void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg,
              "number of elements in exp_avg and p tensors should be equal");
   AT_ASSERTM(exp_avg_sq.numel() == num_elem,
              "number of elements in exp_avg_sq and p tensors should be equal");
-  AT_ASSERTM(diff.numel() == num_elem,
-             "number of elements in diff and p tensors should be equal");
+  AT_ASSERTM(exp_avg_diff.numel() == num_elem,
+             "number of elements in exp_avg_diff and p tensors should be equal");
   AT_ASSERTM(g.numel() == num_elem,
              "number of elements in g and p tensors should be equal");
   AT_ASSERTM(pre_g.numel() == num_elem,
@@ -40,7 +40,7 @@ void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg,
              "p_copy should be empty");
 
   fused_adan_cuda(p, p_copy, g, exp_avg,
-                  exp_avg_sq, diff,
+                  exp_avg_sq, exp_avg_diff,
                   pre_g, beta1, beta2, beta3,
                   bias_correction1, bias_correction2, bias_correction3_sqrt,
                   lr, decay, eps, no_prox, grad_scale);  
