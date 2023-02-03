@@ -39,6 +39,8 @@ __global__ void adan_cuda_kernel(
 
     T scaled_grad = g[global_id] / grad_scale;
 
+    GRAD_T diff, update;
+
     diff = scaled_grad - pre_g[global_id];
     update = scaled_grad + b2 * diff;
 
@@ -97,6 +99,7 @@ __global__ void adan_cuda_kernel<float, float>(
         float4 exp_avg_sq4 = exp_avg_sq4_ptr[global_id];
         float4 exp_avg_diff4 = exp_avg_diff4_ptr[global_id];
 
+        float4 new_p4;
         float4 new_exp_avg4;
         float4 new_exp_avg_sq4;
         float4 new_exp_avg_diff4;
