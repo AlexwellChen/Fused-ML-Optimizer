@@ -83,12 +83,14 @@ __global__ void adan_cuda_kernel<float, float>(
 
         if (global_id * 4 >= total_size) return;
 
+        float4* p4_ptr = reinterpret_cast<float4*>(p);
         const float4* g4_ptr = reinterpret_cast<const float4*>(g);
         const float4* pre_g4_ptr = reinterpret_cast<const float4*>(pre_g);
         float4* exp_avg4_ptr = reinterpret_cast<float4*>(exp_avg);
         float4* exp_avg_sq4_ptr = reinterpret_cast<float4*>(exp_avg_sq);
         float4* exp_avg_diff4_ptr = reinterpret_cast<float4*>(exp_avg_diff);
-
+        
+        float4 p4 = p4_ptr[global_id];
         const float4 g4 = g4_ptr[global_id];
         const float4 pre_g4 = pre_g4_ptr[global_id];
         float4 exp_avg4 = exp_avg4_ptr[global_id];
