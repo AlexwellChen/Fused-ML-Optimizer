@@ -71,11 +71,11 @@ __global__ void adan_cuda_kernel(
 
 template <>
 __global__ void adan_cuda_kernel<float, float>(
-    T* __restrict__ p,
-    GRAD_T* __restrict__ p_copy,  // For mixed precision training, pass NULL if
+    float* __restrict__ p,
+    float* __restrict__ p_copy,  // For mixed precision training, pass NULL if
                                   // not needed
-    const GRAD_T* __restrict__ g, T* __restrict__ exp_avg, T* __restrict__ exp_avg_sq, T* __restrict__ exp_avg_diff,
-    const GRAD_T* __restrict__ pre_g, const float b1, const float b2, const float b3, 
+    const float* __restrict__ g, float* __restrict__ exp_avg, float* __restrict__ exp_avg_sq, float* __restrict__ exp_avg_diff,
+    const float* __restrict__ pre_g, const float b1, const float b2, const float b3, 
     const float bias_correction1, const float bias_correction2, const float bias_correction3_sqrt,
     const float lr, const float decay, const float eps, const bool no_prox, const float grad_scale){
 
