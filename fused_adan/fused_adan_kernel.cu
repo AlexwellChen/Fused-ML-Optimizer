@@ -17,32 +17,6 @@
 #include "../include/fused_adan_kernel.h"
 #include "../include/multi_tensor_apply.cuh"
 
-template <typename T, typename GRAD_T>
-__global__ void ls_adam_cuda_kernel(
-    T* __restrict__ p,
-    GRAD_T* __restrict__ p_copy,  // For mixed precision training, pass NULL if
-                                  // not needed
-    T* __restrict__ m, T* __restrict__ v, const GRAD_T* __restrict__ g,
-    const float b1, const float b2, const float eps, const float grad_scale,
-    const float step_size, const size_t total_size, adamMode_t mode,
-    const float decay) {
-  int global_id = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (global_id >= total_size) return;
-
-  T scaled_grad = g[global_id] / grad_scale;
-  m[global_id] = b1 * m[global_id] + (1 - b1) * scaled_grad;
-  v[global_id] = b2 * v[global_id] + (1 - b2) * scaled_grad * scaled_grad;
-  float denom;
-  if (mode == ADAM_MODE_0)
-    denom = sqrtf(v[global_id] + eps);
-  else  // Mode 1
-    denom = sqrtf(v[global_id]) + eps;
-  float update = (m[global_id] / denom) + (decay * p[global_id]);
-  p[global_id] = p[global_id] - (step_size * update);
-  if (p_copy != NULL) p_copy[global_id] = (GRAD_T)p[global_id];
-}
-
 // void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, 
 //           at::Tensor& exp_avg_sq, at::Tensor& exp_avg_diff,
 //           at::Tensor& pre_g, float beta1, float beta2, float beta3, 
@@ -191,7 +165,7 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
           at::Tensor& exp_avg_sq, at::Tensor& exp_avg_diff,
           at::Tensor& pre_g, float beta1, float beta2, float beta3, 
           float bias_correction1, float bias_correction2, float bias_correction3_sqrt, 
-          float lr, float decay, float eps, bool no_prox, float grad_scale);
+          float lr, float decay, float eps, bool no_prox, float grad_scale){
     // Get tensor size
     int total_size = p.numel();
     AT_ASSERTM(at::cuda::detail::canUse32BitIndexMath(p),
@@ -200,43 +174,45 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
     cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
     if (g.scalar_type() == at::ScalarType::Half) {
-      const int block_dim = 1024;
-      int grid_dim = ((total_size + block_dim - 1) / block_dim);
-      const dim3 blocks(grid_dim);
-      // all other values should be fp32 for half gradients
-      AT_ASSERTM(p.scalar_type() == at::ScalarType::Float,
-                "expected parameter to be of float type");
-      // dispatch is done on the gradient type
-      using namespace at;  // prevents "toString is undefined" errors
-      DISPATCH_FLOAT_AND_HALF(
-          g.scalar_type(), 0, "adan_cuda_kernel",
-          using accscalar_t = at::acc_type<scalar_t_0, true>;
-          adan_cuda_kernel<accscalar_t, scalar_t_0>
-          <<<blocks, block_dim, 0, stream>>>(
-              p.DATA_PTR<accscalar_t>(),
-              p_copy.numel() ? p_copy.DATA_PTR<scalar_t_0>() : NULL,
-              g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<accscalar_t>(), exp_avg_sq.DATA_PTR<accscalar_t>(),exp_avg_diff.DATA_PTR<accscalar_t>(), 
-              pre_g.DATA_PTR<scalar_t_0>(), 
-              beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
-              lr, decay, eps, no_prox, grad_scale);
-              );
+        const int block_dim = 1024;
+        int grid_dim = ((total_size + block_dim - 1) / block_dim);
+        const dim3 blocks(grid_dim);
+        // all other values should be fp32 for half gradients
+        AT_ASSERTM(p.scalar_type() == at::ScalarType::Float,
+                  "expected parameter to be of float type");
+        // dispatch is done on the gradient type
+        using namespace at;  // prevents "toString is undefined" errors
+        DISPATCH_FLOAT_AND_HALF(
+            g.scalar_type(), 0, "adan_cuda_kernel",
+            using accscalar_t = at::acc_type<scalar_t_0, true>;
+            adan_cuda_kernel<accscalar_t, scalar_t_0>
+            <<<blocks, block_dim, 0, stream>>>(
+                p.DATA_PTR<accscalar_t>(),
+                p_copy.numel() ? p_copy.DATA_PTR<scalar_t_0>() : NULL,
+                g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<accscalar_t>(), exp_avg_sq.DATA_PTR<accscalar_t>(),exp_avg_diff.DATA_PTR<accscalar_t>(), 
+                pre_g.DATA_PTR<scalar_t_0>(), 
+                beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
+                lr, decay, eps, no_prox, grad_scale
+                );
+            );
     } else {
-      using namespace at;
-      const int block_dim = 1024;
-      int grid_dim = ((total_size + block_dim - 1) / block_dim) >> 2;
-      if (grid_dim == 0) grid_dim = 1;
-      const dim3 blocks(grid_dim);
-      DISPATCH_DOUBLE_AND_FLOAT(
-          g.scalar_type(), 0, "adan_cuda_kernel",
-          adan_cuda_kernel<scalar_t_0, scalar_t_0>
-          <<<blocks, block_dim, 0, stream>>>(
-              p.DATA_PTR<scalar_t_0>(),
-              NULL,
-              g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<scalar_t_0>(), exp_avg_sq.DATA_PTR<scalar_t_0>(),exp_avg_diff.DATA_PTR<scalar_t_0>(), 
-              pre_g.DATA_PTR<scalar_t_0>(), 
-              beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
-              lr, decay, eps, no_prox, grad_scale);
-              );
+        using namespace at;
+        const int block_dim = 1024;
+        int grid_dim = ((total_size + block_dim - 1) / block_dim) >> 2;
+        if (grid_dim == 0) grid_dim = 1;
+        const dim3 blocks(grid_dim);
+        DISPATCH_DOUBLE_AND_FLOAT(
+            g.scalar_type(), 0, "adan_cuda_kernel",
+            adan_cuda_kernel<scalar_t_0, scalar_t_0>
+            <<<blocks, block_dim, 0, stream>>>(
+                p.DATA_PTR<scalar_t_0>(),
+                NULL,
+                g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<scalar_t_0>(), exp_avg_sq.DATA_PTR<scalar_t_0>(),exp_avg_diff.DATA_PTR<scalar_t_0>(), 
+                pre_g.DATA_PTR<scalar_t_0>(), 
+                beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
+                lr, decay, eps, no_prox, grad_scale
+            );
+        );
     }
     AT_CUDA_CHECK(cudaGetLastError());
 }
