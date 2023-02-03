@@ -37,8 +37,8 @@ __global__ void adan_cuda_kernel(
 
     if (global_id >= total_size) return;
 
-    diff = g[global_id] - pre_g[global_id]
-    update = g[global_id] + b2 * diff
+    diff = g[global_id] - pre_g[global_id];
+    update = g[global_id] + b2 * diff;
 
     T scaled_grad = g[global_id] / grad_scale;
 
@@ -66,8 +66,6 @@ __global__ void adan_cuda_kernel(
         // param.div_(1 + lr * weight_decay)
         p[global_id] = p[global_id] + update * (-lr) / (1 + lr * decay);
     } 
-     
-    
     if (p_copy != NULL) p_copy[global_id] = (GRAD_T)p[global_id];
 }
 
