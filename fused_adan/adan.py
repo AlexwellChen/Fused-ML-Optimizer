@@ -1,15 +1,11 @@
+import torch
 import fused_adan
 
 fused_adan_cuda = None
 import math
-from typing import List
-
-import torch
-from torch import Tensor
-from torch.optim.optimizer import Optimizer
 
 
-class Adan(Optimizer):
+class Adan(torch.optim.Optimizer):
     """
     Implements a pytorch variant of Adan
     Adan was proposed in
@@ -186,7 +182,7 @@ class Adan(Optimizer):
                 exp_avg_diff = state["exp_avg_diff"]
                 pre_grad = state["pre_grad"]
 
-                grad_copy = grad.clone()/scale
+                grad_copy = grad.clone()/combined_scale
                 
                 out_p = p.data
                 kwargs = dict(
