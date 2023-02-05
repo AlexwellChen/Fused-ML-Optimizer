@@ -1,5 +1,0 @@
-README.md
-fused_adan.egg-info/PKG-INFO
-fused_adan.egg-info/SOURCES.txt
-fused_adan.egg-info/dependency_links.txt
-fused_adan.egg-info/top_level.txt
