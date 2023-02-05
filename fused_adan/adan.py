@@ -1,7 +1,5 @@
 import math
-from typing import List
 import torch
-from torch import Tensor
 from torch.optim.optimizer import Optimizer
 import fused_adan
 fused_adan_cuda = None
@@ -59,6 +57,7 @@ class AdanOptimizer(Optimizer):
 
         if fused_adan_cuda is None:
             fused_adan_cuda = fused_adan
+            
         defaults = dict(lr=lr,
                         betas=betas,
                         eps=eps,
@@ -216,3 +215,4 @@ class AdanOptimizer(Optimizer):
                 state["pre_grad"] = grad_copy
                 
         return loss
+
