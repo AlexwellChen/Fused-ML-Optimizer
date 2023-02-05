@@ -3,7 +3,7 @@ from typing import List
 import torch
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
-import fused_adan
+import adan
 fused_adan_cuda = None
 
 
@@ -58,7 +58,7 @@ class Adan(Optimizer):
         global fused_adan_cuda
 
         if fused_adan_cuda is None:
-            fused_adan_cuda = fused_adan
+            fused_adan_cuda = adan
         defaults = dict(lr=lr,
                         betas=betas,
                         eps=eps,
