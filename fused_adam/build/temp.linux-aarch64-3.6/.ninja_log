@@ -1,7 +1,0 @@
-# ninja log v5
-1	162544	1675159739003618712	/home/jetson/Desktop/pytorch/fused_adam/build/temp.linux-aarch64-3.6/pybind_adam.o	e9580771aa6c0b79
-1	242715	1675159819189701527	/home/jetson/Desktop/pytorch/fused_adam/build/temp.linux-aarch64-3.6/fused_adam_kernel.o	dff5ae1339355a69
-65	146481	1675167463490806982	/home/jetson/Desktop/pytorch/fused_adam/build/temp.linux-aarch64-3.6/pybind_adam.o	5acdb6b22d3c3b0e
-66	213265	1675167530287862429	/home/jetson/Desktop/pytorch/fused_adam/build/temp.linux-aarch64-3.6/fused_adam_kernel.o	ba6dd4c64aa6d23f
-8	168606	1675420032439231061	/home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adam/build/temp.linux-aarch64-3.6/fused_adam_kernel.o	8f2664c45deb6f69
-32	74148	1675420334692965199	/home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adam/build/temp.linux-aarch64-3.6/pybind_adam.o	d17bcd46ea616189
