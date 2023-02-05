@@ -1,11 +1,13 @@
-import torch
-import fused_adan
-
-fused_adan_cuda = None
 import math
+from typing import List
+import torch
+from torch import Tensor
+from torch.optim.optimizer import Optimizer
+import fused_adan
+fused_adan_cuda = None
 
 
-class Adan(torch.optim.Optimizer):
+class Adan(Optimizer):
     """
     Implements a pytorch variant of Adan
     Adan was proposed in
@@ -127,6 +129,9 @@ class Adan(torch.optim.Optimizer):
         else:
             clip_global_grad_norm = 1.0
 
+        if grad_norms is None:
+            grad_norms = [None] * len(self.param_groups)
+
         for group, grads_this_group, grad_norm in zip(
             self.param_groups, grads_group, grad_norms
         ):
@@ -152,7 +157,7 @@ class Adan(torch.optim.Optimizer):
 
             bias_correction1 = 1.0 - beta1**group['step']
             bias_correction2 = 1.0 - beta2**group['step']
-            bias_correction3 = 1.0 - beta3**group['step']
+            bias_correction3_sqrt=math.sqrt(1.0 - beta3**group['step'])
 
             for p, grad in zip(group["params"], grads_this_group):
                 if p.grad is None and grad is None:
@@ -175,41 +180,39 @@ class Adan(torch.optim.Optimizer):
                 if 'pre_grad' not in state or group['step'] == 1:
                     # at first step grad wouldn't be clipped by `clip_global_grad_norm`
                     # this is only to simplify implementation
-                    state['pre_grad'] = p.grad
+                    state['pre_grad'] = p.grad.data
 
                 exp_avg = state["exp_avg"]
                 exp_avg_sq = state["exp_avg_sq"]
                 exp_avg_diff = state["exp_avg_diff"]
                 pre_grad = state["pre_grad"]
 
-                grad_copy = grad.clone()/combined_scale
+                grad_copy = grad.clone()/scale
                 
                 out_p = p.data
-                kwargs = dict(
-                    params=p_data_fp32, # p            at::Tensor
-                    params_copy=out_p,  # p_copy       at::Tensor
-                    grad=grad,          # g            at::Tensor
-                    exp_avg=exp_avg,    # exp_avg      at::Tensor            
-                    exp_avg_sq=exp_avg_sq,# exp_avg_sq at::Tensor
-                    exp_avg_diff=exp_avg_diff,# exp_avg_diff  at::Tensor
-                    pre_grad=pre_grad,  # pre_g        at::Tensor
-                    beta1=beta1,        # beta1        float
-                    beta2=beta2,        # beta2        float  
-                    beta3=beta3,        # beta3        float
-                    bias_correction1=bias_correction1,  # bias_correction1 float
-                    bias_correction2=bias_correction2,  # bias_correction2 float
-                    bias_correction3_sqrt=math.sqrt(bias_correction3),  # bias_correction3_sqrt float
-                    lr=group['lr'],     # lr           float
-                    weight_decay=group['weight_decay'], # decay float
-                    eps=group['eps'],   # eps          float
-                    no_prox=group['no_prox'], # no_prox bool
-                    scale=combined_scale,# grad_scale  float
-                )
 
                 with torch.cuda.device(p.device):
-                    fused_adan_cuda.adan(**kwargs)
+                    fused_adan_cuda.adan(
+                        p_data_fp32,
+                        out_p,
+                        grad,
+                        exp_avg,
+                        exp_avg_sq,
+                        exp_avg_diff,
+                        pre_grad,
+                        beta1,
+                        beta2,
+                        beta3,
+                        bias_correction1,
+                        bias_correction2,
+                        bias_correction3_sqrt,
+                        group['lr'],
+                        group['weight_decay'],
+                        group['eps'],
+                        group['no_prox'],
+                        combined_scale
+                    )
 
                 state["pre_grad"] = grad_copy
                 
-            
         return loss
