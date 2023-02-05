@@ -10,7 +10,9 @@ setup(
         CUDAExtension('fused_adan', [
             'pybind_adan.cpp',
             'fused_adan_kernel.cu',
-        ], extra_compile_args={'nvcc': nvcc_args})
+        ] 
+        #,extra_compile_args={'nvcc': nvcc_args}
+        )
     ],
     cmdclass={
         'build_ext': BuildExtension
