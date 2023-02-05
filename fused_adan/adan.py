@@ -358,6 +358,7 @@ def _fused_adan(
         p_data_fp32 = param.data.float()
         out_p = param.data
         grad = grads[i]
+        grad_copy = grad.clone() * clip_global_grad_norm[i]
         exp_avg = exp_avgs[i]
         exp_avg_sq = exp_avg_sqs[i]
         exp_avg_diff = exp_avg_diffs[i]
@@ -384,4 +385,4 @@ def _fused_adan(
             no_prox,
             clip_global_grad_norm,
         )
-    neg_grad.zero_().add_(grad, alpha=-1.0)
+    neg_grad.zero_().add_(grad_copy, alpha=-1.0)
