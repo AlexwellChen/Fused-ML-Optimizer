@@ -176,10 +176,10 @@ void fused_adam_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& m,
         using accscalar_t = at::acc_type<scalar_t_0, true>;
         ls_adam_cuda_kernel<accscalar_t, scalar_t_0>
         <<<blocks, block_dim, 0, stream>>>(
-            p.DATA_PTR<accscalar_t>(),
-            p_copy.numel() ? p_copy.DATA_PTR<scalar_t_0>() : NULL,
-            m.DATA_PTR<accscalar_t>(), v.DATA_PTR<accscalar_t>(),
-            g.DATA_PTR<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
+            p.data_ptr<accscalar_t>(),
+            p_copy.numel() ? p_copy.data_ptr<scalar_t_0>() : NULL,
+            m.data_ptr<accscalar_t>(), v.data_ptr<accscalar_t>(),
+            g.data_ptr<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
             total_size, (adamMode_t)mode, decay););
   } else {
     using namespace at;
@@ -191,10 +191,10 @@ void fused_adam_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& m,
         g.scalar_type(), 0, "adam_cuda_kernel",
         ls_adam_cuda_kernel<scalar_t_0, scalar_t_0>
         <<<blocks, block_dim, 0, stream>>>(
-            p.DATA_PTR<scalar_t_0>(),
+            p.data_ptr<scalar_t_0>(),
             NULL,  // don't output p_copy for fp32, it's wasted write
-            m.DATA_PTR<scalar_t_0>(), v.DATA_PTR<scalar_t_0>(),
-            g.DATA_PTR<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
+            m.data_ptr<scalar_t_0>(), v.data_ptr<scalar_t_0>(),
+            g.data_ptr<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
             total_size, (adamMode_t)mode, decay););
   }
   AT_CUDA_CHECK(cudaGetLastError());
@@ -233,10 +233,10 @@ void apex_fused_adam_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& m,
         using accscalar_t = at::acc_type<scalar_t_0, true>;
         apex_adam_cuda_kernel<accscalar_t, scalar_t_0>
         <<<blocks, threadsPerBlock, 0, stream>>>(
-            p.DATA_PTR<accscalar_t>(),
-            p_copy.numel() ? p_copy.DATA_PTR<scalar_t_0>() : NULL,
-            m.DATA_PTR<accscalar_t>(), v.DATA_PTR<accscalar_t>(),
-            g.DATA_PTR<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
+            p.data_ptr<accscalar_t>(),
+            p_copy.numel() ? p_copy.data_ptr<scalar_t_0>() : NULL,
+            m.data_ptr<accscalar_t>(), v.data_ptr<accscalar_t>(),
+            g.data_ptr<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
             tsize, (adamMode_t)mode, decay););
   } else {
     using namespace at;
@@ -244,10 +244,10 @@ void apex_fused_adam_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& m,
         g.scalar_type(), 0, "apex_adam_cuda_kernel",
         apex_adam_cuda_kernel<scalar_t_0, scalar_t_0>
         <<<blocks, threadsPerBlock, 0, stream>>>(
-            p.DATA_PTR<scalar_t_0>(),
+            p.data_ptr<scalar_t_0>(),
             NULL,  // don't output p_copy for fp32, it's wasted write
-            m.DATA_PTR<scalar_t_0>(), v.DATA_PTR<scalar_t_0>(),
-            g.DATA_PTR<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
+            m.data_ptr<scalar_t_0>(), v.data_ptr<scalar_t_0>(),
+            g.data_ptr<scalar_t_0>(), beta1, beta2, eps, grad_scale, step_size,
             tsize, (adamMode_t)mode, decay););
   }
   AT_CUDA_CHECK(cudaGetLastError());

@@ -10,8 +10,6 @@ setup(
         CUDAExtension(
             'fused_adan', 
             sources=['pybind_adan.cpp','fused_adan_kernel.cu']
-            # include_dirs=['/content/libtorch/include'],
-            # library_dirs=['/content/libtorch/lib'],
         #,extra_compile_args={'nvcc': nvcc_args}
         )
     ],

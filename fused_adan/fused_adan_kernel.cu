@@ -232,10 +232,10 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
             using accscalar_t = at::acc_type<scalar_t_0, true>;
             adan_cuda_kernel<accscalar_t, scalar_t_0>
             <<<blocks, block_dim, 0, stream>>>(
-                p.DATA_PTR<accscalar_t>(),
-                p_copy.numel() ? p_copy.DATA_PTR<scalar_t_0>() : NULL,
-                g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<accscalar_t>(), exp_avg_sq.DATA_PTR<accscalar_t>(),exp_avg_diff.DATA_PTR<accscalar_t>(), 
-                neg_grad.DATA_PTR<scalar_t_0>(), 
+                p.data_ptr<accscalar_t>(),
+                p_copy.numel() ? p_copy.data_ptr<scalar_t_0>() : NULL,
+                g.data_ptr<scalar_t_0>(), exp_avg.data_ptr<accscalar_t>(), exp_avg_sq.data_ptr<accscalar_t>(),exp_avg_diff.data_ptr<accscalar_t>(), 
+                neg_grad.data_ptr<scalar_t_0>(), 
                 beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
                 lr, decay, eps, no_prox, clip_global_grad_norm, total_size
                 );
@@ -250,10 +250,10 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
             g.scalar_type(), 0, "adan_cuda_kernel",
             adan_cuda_kernel<scalar_t_0, scalar_t_0>
             <<<blocks, block_dim, 0, stream>>>(
-                p.DATA_PTR<scalar_t_0>(),
+                p.data_ptr<scalar_t_0>(),
                 NULL,
-                g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<scalar_t_0>(), exp_avg_sq.DATA_PTR<scalar_t_0>(),exp_avg_diff.DATA_PTR<scalar_t_0>(), 
-                neg_grad.DATA_PTR<scalar_t_0>(), 
+                g.data_ptr<scalar_t_0>(), exp_avg.data_ptr<scalar_t_0>(), exp_avg_sq.data_ptr<scalar_t_0>(),exp_avg_diff.data_ptr<scalar_t_0>(), 
+                neg_grad.data_ptr<scalar_t_0>(), 
                 beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
                 lr, decay, eps, no_prox, clip_global_grad_norm, total_size
             );
