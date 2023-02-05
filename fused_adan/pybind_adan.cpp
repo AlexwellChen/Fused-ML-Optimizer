@@ -53,5 +53,5 @@ void adan(at::Tensor& p,
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("adan_interface", &adan, "Adan optimized CUDA implementation.");
+  m.def("adan", &adan, "Adan optimized CUDA implementation.");
 }

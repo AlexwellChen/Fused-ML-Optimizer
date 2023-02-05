@@ -192,7 +192,7 @@ class AdanOptimizer(Optimizer):
                 out_p = p.data
 
                 with torch.cuda.device(p.device):
-                    fused_adan_cuda.adan_interface(
+                    fused_adan_cuda.adan(
                         p_data_fp32,
                         out_p,
                         grad,
