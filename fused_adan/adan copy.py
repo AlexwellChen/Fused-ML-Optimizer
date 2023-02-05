@@ -1,33 +1,15 @@
-# Copyright 2022 Garena Online Private Limited
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import math
+import torch
+from torch.optim.optimizer import Optimizer
 from typing import List
 
-import torch
-from torch import Tensor
-from torch.optim.optimizer import Optimizer
-
-from torch.utils.cpp_extension import load
-
-class Adan(Optimizer):
+class AdanOptimizer(Optimizer):
     """
     Implements a pytorch variant of Adan
     Adan was proposed in
     Adan: Adaptive Nesterov Momentum Algorithm for
         Faster Optimizing Deep Models[J].arXiv preprint arXiv:2208.06677, 2022.
-    https://arxiv.org/abs/2208.06677
+    https:#arxiv.org/abs/2208.06677
     Arguments:
         params (iterable): iterable of parameters to optimize or
             dicts defining parameter groups.
@@ -70,14 +52,18 @@ class Adan(Optimizer):
         if not 0.0 <= betas[2] < 1.0:
             raise ValueError('Invalid beta parameter at index 2: {}'.format(
                 betas[2]))
+        global fused_adan_cuda
+
+        if fused_adan_cuda is None:
+            fused_adan_cuda = fused_adan
+            
         defaults = dict(lr=lr,
                         betas=betas,
                         eps=eps,
                         weight_decay=weight_decay,
                         max_grad_norm=max_grad_norm,
                         no_prox=no_prox,
-                        foreach=foreach,
-                        fused=fused)
+                        foreach=foreach)
         super().__init__(params, defaults)
 
     def __setstate__(self, state):
@@ -102,13 +88,23 @@ class Adan(Optimizer):
                     state['exp_avg_diff'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure=None):
+    def step(self, closure=None, grads=None, scale=1.0, grad_norms=None):
         """Performs a single optimization step."""
 
         loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
+        if grads is None:
+            grads_group = [None] * len(self.param_groups)
+        # backward compatibility
+        # assuming a list/generator of parameter means single group
+        elif isinstance(grads, types.GeneratorType):
+            grads_group = [grads]
+        elif type(grads[0]) != list:
+            grads_group = [grads]
+        else:
+            grads_group = grads
 
         if self.defaults['max_grad_norm'] > 0:
             device = self.param_groups[0]['params'][0].device
@@ -131,13 +127,22 @@ class Adan(Optimizer):
         else:
             clip_global_grad_norm = 1.0
 
-        for group in self.param_groups:
-            params_with_grad = []
-            grads = []
-            exp_avgs = []
-            exp_avg_sqs = []
-            exp_avg_diffs = []
-            neg_pre_grads = []
+        if grad_norms is None:
+            grad_norms = [None] * len(self.param_groups)
+
+        for group, grads_this_group, grad_norm in zip(
+            self.param_groups, grads_group, grad_norms
+        ):
+            if grads_this_group is None:
+                grads_this_group = [None] * len(group["params"])
+
+             # compute combined scale factor for this group
+            combined_scale = scale
+            if group.get("max_grad_norm", 0) > 0:
+                # norm is in fact norm*scale
+                clip = ((grad_norm / scale) + 1e-6) / group["max_grad_norm"]
+                if clip > 1:
+                    combined_scale = clip * scale
 
             beta1, beta2, beta3 = group['betas']
             # assume same step across group now to simplify things
@@ -150,63 +155,65 @@ class Adan(Optimizer):
 
             bias_correction1 = 1.0 - beta1**group['step']
             bias_correction2 = 1.0 - beta2**group['step']
-            bias_correction3 = 1.0 - beta3**group['step']
+            bias_correction3_sqrt=math.sqrt(1.0 - beta3**group['step'])
 
-            for p in group['params']:
-                if p.grad is None:
+            for p, grad in zip(group["params"], grads_this_group):
+                if p.grad is None and grad is None:
                     continue
-                params_with_grad.append(p)
-                grads.append(p.grad)
+                if grad is None:
+                    grad = p.grad.data
+                    
+                p_data_fp32 = p.data.float()
 
                 state = self.state[p]
                 if len(state) == 0:
-                    state['exp_avg'] = torch.zeros_like(p)
-                    state['exp_avg_sq'] = torch.zeros_like(p)
-                    state['exp_avg_diff'] = torch.zeros_like(p)
-
-                if 'neg_pre_grad' not in state or group['step'] == 1:
-                    state['neg_pre_grad'] = p.grad.clone().mul_(
-                        -clip_global_grad_norm)
-
-                exp_avgs.append(state['exp_avg'])
-                exp_avg_sqs.append(state['exp_avg_sq'])
-                exp_avg_diffs.append(state['exp_avg_diff'])
-                neg_pre_grads.append(state['neg_pre_grad'])
-
-            kwargs = dict(
-                params=params_with_grad,
-                grads=grads,
-                exp_avgs=exp_avgs,
-                exp_avg_sqs=exp_avg_sqs,
-                exp_avg_diffs=exp_avg_diffs,
-                neg_pre_grads=neg_pre_grads,
-                beta1=beta1,
-                beta2=beta2,
-                beta3=beta3,
-                bias_correction1=bias_correction1,
-                bias_correction2=bias_correction2,
-                bias_correction3_sqrt=math.sqrt(bias_correction3),
-                lr=group['lr'],
-                weight_decay=group['weight_decay'],
-                eps=group['eps'],
-                no_prox=group['no_prox'],
-                clip_global_grad_norm=clip_global_grad_norm,
-            )
-
-            if group['foreach']:
-                if group['fused']:
-                    # Raise runtime Error: foreach cannot be used with fused
-                    raise RuntimeError(
-                        "foreach cannot be used with fused kernel")
+                    state['exp_avg'] = torch.zeros_like(p_data_fp32)
+                    state['exp_avg_sq'] = torch.zeros_like(p_data_fp32)
+                    state['exp_avg_diff'] = torch.zeros_like(p_data_fp32)
                 else:
-                    _multi_tensor_adan(**kwargs)
-            elif group['fused']:
-                _fused_adan(**kwargs)
-            else:
-                _single_tensor_adan(**kwargs)
+                    state["exp_avg"] = state["exp_avg"].to(p_data_fp32)
+                    state["exp_avg_sq"] = state["exp_avg_sq"].to(p_data_fp32)
+                    state["exp_avg_diff"] = state["exp_avg_diff"].to(p_data_fp32)
 
+                if 'pre_grad' not in state or group['step'] == 1:
+                    # at first step grad wouldn't be clipped by `clip_global_grad_norm`
+                    # this is only to simplify implementation
+                    state['pre_grad'] = p.grad.data
+
+                exp_avg = state["exp_avg"]
+                exp_avg_sq = state["exp_avg_sq"]
+                exp_avg_diff = state["exp_avg_diff"]
+                pre_grad = state["pre_grad"]
+
+                grad_copy = grad.clone()/scale
+                
+                out_p = p.data
+
+                with torch.cuda.device(p.device):
+                    fused_adan_cuda.adan(
+                        p_data_fp32,
+                        out_p,
+                        grad,
+                        exp_avg,
+                        exp_avg_sq,
+                        exp_avg_diff,
+                        pre_grad,
+                        beta1,
+                        beta2,
+                        beta3,
+                        bias_correction1,
+                        bias_correction2,
+                        bias_correction3_sqrt,
+                        group['lr'],
+                        group['weight_decay'],
+                        group['eps'],
+                        group['no_prox'],
+                        combined_scale
+                    )
+
+                state["pre_grad"] = grad_copy
+                
         return loss
-
 
 def _single_tensor_adan(
     params: List[Tensor],
@@ -354,34 +361,4 @@ def _fused_adan(
     no_prox: bool,
     clip_global_grad_norm: Tensor,
 ):
-    for i, param in enumerate(params):
-        p_data_fp32 = param.data.float()
-        out_p = param.data
-        grad = grads[i]
-        exp_avg = exp_avgs[i]
-        exp_avg_sq = exp_avg_sqs[i]
-        exp_avg_diff = exp_avg_diffs[i]
-        neg_grad = neg_pre_grads[i]
-    with torch.cuda.device(param.device):
-        import fused_adan_cuda
-        fused_adan_cuda.adan(
-            p_data_fp32,
-            out_p,
-            grad,
-            exp_avg,
-            exp_avg_sq,
-            exp_avg_diff,
-            neg_grad,
-            beta1,
-            beta2,
-            beta3,
-            bias_correction1,
-            bias_correction2,
-            bias_correction3_sqrt,
-            lr,
-            weight_decay,
-            eps,
-            no_prox,
-            clip_global_grad_norm,
-        )
-    neg_grad.zero_().add_(grad, alpha=-1.0)
+    pass

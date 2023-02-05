@@ -14,14 +14,9 @@
 #include "ATen/cuda/CUDAContext.h"
 #include "ATen/cuda/detail/IndexUtils.cuh"
 #include "ATen/cuda/Exceptions.h"
-#include "../include/fused_adan_kernel.h"
+#include "../include/fused_adan_kernel.cuh"
 #include "../include/multi_tensor_apply.cuh"
 
-// void adan(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, 
-//           at::Tensor& exp_avg_sq, at::Tensor& exp_avg_diff,
-//           at::Tensor& pre_g, float beta1, float beta2, float beta3, 
-//           float bias_correction1, float bias_correction2, float bias_correction3_sqrt, 
-//           float lr, float decay, float eps, bool no_prox, float grad_scale);
 
 template <typename T, typename GRAD_T>
 __global__ void adan_cuda_kernel(
@@ -29,43 +24,34 @@ __global__ void adan_cuda_kernel(
     GRAD_T* __restrict__ p_copy,  // For mixed precision training, pass NULL if
                                   // not needed
     const GRAD_T* __restrict__ g, T* __restrict__ exp_avg, T* __restrict__ exp_avg_sq, T* __restrict__ exp_avg_diff,
-    const GRAD_T* __restrict__ pre_g, const float b1, const float b2, const float b3, 
+    const GRAD_T* __restrict__ neg_grad, const float b1, const float b2, const float b3, 
     const float bias_correction1, const float bias_correction2, const float bias_correction3_sqrt,
-    const float lr, const float decay, const float eps, const bool no_prox, const float grad_scale, const size_t total_size
+    const float lr, const float decay, const float eps, const bool no_prox, const float clip_global_grad_norm, const size_t total_size
     ){
     int global_id = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (global_id >= total_size) return;
 
-    T scaled_grad = g[global_id] / grad_scale;
+    T scaled_grad = g[global_id] * clip_global_grad_norm;
 
     GRAD_T diff, update;
 
-    diff = scaled_grad - pre_g[global_id];
+    diff = scaled_grad + neg_grad[global_id];
     update = scaled_grad + b2 * diff;
 
-    // exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)  # m_t
     exp_avg[global_id] = b1 * exp_avg[global_id] + (1 - b1) * scaled_grad;
 
-    // exp_avg_diff.mul_(beta2).add_(diff, alpha=1 - beta2)  # diff_t
     exp_avg_diff[global_id] = b2 * exp_avg_diff[global_id] + (1 - b2) * diff;
 
-    // exp_avg_sq.mul_(beta3).addcmul_(update, update, value=1 - beta3)  # n_t
     exp_avg_sq[global_id] = b3 * exp_avg_sq[global_id] + (1 - b3) * update * update;
 
-    // denom = ((exp_avg_sq).sqrt() / bias_correction3_sqrt).add_(eps)
-    // update = ((exp_avg / bias_correction1 + beta2 * exp_avg_diff / bias_correction2)).div_(denom)
     float denom;
     denom = sqrtf(exp_avg_sq[global_id]) / bias_correction3_sqrt + eps;
     update = (exp_avg[global_id] / bias_correction1 + b2 * exp_avg_diff[global_id] / bias_correction2) / denom;
     
     if (no_prox){
-        // param.mul_(1 - lr * weight_decay)
-        // param.add_(update, alpha=-lr)
         p[global_id] = p[global_id] * (1 - lr * decay) + update * (-lr);
     }else{
-        // param.add_(update, alpha=-lr)
-        // param.div_(1 + lr * weight_decay)
         p[global_id] = p[global_id] + update * (-lr) / (1 + lr * decay);
     } 
     if (p_copy != NULL) p_copy[global_id] = (GRAD_T)p[global_id];
@@ -77,9 +63,9 @@ __global__ void adan_cuda_kernel<float, float>(
     float* __restrict__ p_copy,  // For mixed precision training, pass NULL if
                                   // not needed
     const float* __restrict__ g, float* __restrict__ exp_avg, float* __restrict__ exp_avg_sq, float* __restrict__ exp_avg_diff,
-    const float* __restrict__ pre_g, const float b1, const float b2, const float b3, 
+    const float* __restrict__ neg_grad, const float b1, const float b2, const float b3, 
     const float bias_correction1, const float bias_correction2, const float bias_correction3_sqrt,
-    const float lr, const float decay, const float eps, const bool no_prox, const float grad_scale, const size_t total_size){
+    const float lr, const float decay, const float eps, const bool no_prox, const float clip_global_grad_norm, const size_t total_size){
 
         int global_id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -87,14 +73,14 @@ __global__ void adan_cuda_kernel<float, float>(
 
         float4* p4_ptr = reinterpret_cast<float4*>(p);
         const float4* g4_ptr = reinterpret_cast<const float4*>(g);
-        const float4* pre_g4_ptr = reinterpret_cast<const float4*>(pre_g);
+        const float4* neg_grad4_ptr = reinterpret_cast<const float4*>(neg_grad);
         float4* exp_avg4_ptr = reinterpret_cast<float4*>(exp_avg);
         float4* exp_avg_sq4_ptr = reinterpret_cast<float4*>(exp_avg_sq);
         float4* exp_avg_diff4_ptr = reinterpret_cast<float4*>(exp_avg_diff);
         
         float4 p4 = p4_ptr[global_id];
         const float4 g4 = g4_ptr[global_id];
-        const float4 pre_g4 = pre_g4_ptr[global_id];
+        const float4 neg_grad4 = neg_grad4_ptr[global_id];
         float4 exp_avg4 = exp_avg4_ptr[global_id];
         float4 exp_avg_sq4 = exp_avg_sq4_ptr[global_id];
         float4 exp_avg_diff4 = exp_avg_diff4_ptr[global_id];
@@ -104,15 +90,15 @@ __global__ void adan_cuda_kernel<float, float>(
         float4 new_exp_avg_sq4;
         float4 new_exp_avg_diff4;
 
-        float scaled_grad1 = g4.x / grad_scale;
-        float scaled_grad2 = g4.y / grad_scale;
-        float scaled_grad3 = g4.z / grad_scale;
-        float scaled_grad4 = g4.w / grad_scale;
+        float scaled_grad1 = g4.x * clip_global_grad_norm;
+        float scaled_grad2 = g4.y * clip_global_grad_norm;
+        float scaled_grad3 = g4.z * clip_global_grad_norm;
+        float scaled_grad4 = g4.w * clip_global_grad_norm;
 
-        float diff1 = scaled_grad1 - pre_g4.x;
-        float diff2 = scaled_grad2 - pre_g4.y;
-        float diff3 = scaled_grad3 - pre_g4.z;
-        float diff4 = scaled_grad4 - pre_g4.w;
+        float diff1 = scaled_grad1 + neg_grad4.x;
+        float diff2 = scaled_grad2 + neg_grad4.y;
+        float diff3 = scaled_grad3 + neg_grad4.z;
+        float diff4 = scaled_grad4 + neg_grad4.w;
 
         float update1 = scaled_grad1 + b2 * diff1;
         float update2 = scaled_grad2 + b2 * diff2;
@@ -140,20 +126,17 @@ __global__ void adan_cuda_kernel<float, float>(
         denom4.z = sqrt(new_exp_avg_sq4.z - new_exp_avg_diff4.z * new_exp_avg_diff4.z / b2) + eps;
         denom4.w = sqrt(new_exp_avg_sq4.w - new_exp_avg_diff4.w * new_exp_avg_diff4.w / b2) + eps;
 
-        // update = (exp_avg[global_id] / bias_correction1 + b2 * exp_avg_diff[global_id] / bias_correction2) / denom;
         update1 = (new_exp_avg4.x / bias_correction1 + b2 * new_exp_avg_diff4.x / bias_correction2) / denom4.x;
         update2 = (new_exp_avg4.y / bias_correction1 + b2 * new_exp_avg_diff4.y / bias_correction2) / denom4.y;
         update3 = (new_exp_avg4.z / bias_correction1 + b2 * new_exp_avg_diff4.z / bias_correction2) / denom4.z;
         update4 = (new_exp_avg4.w / bias_correction1 + b2 * new_exp_avg_diff4.w / bias_correction2) / denom4.w;
 
         if (no_prox){
-            // p[global_id] = p[global_id] * (1 - lr * decay) + update * (-lr);
             new_p4.x = p4.x * (1 - lr * decay) + update1 * (-lr);
             new_p4.y = p4.y * (1 - lr * decay) + update2 * (-lr);
             new_p4.z = p4.z * (1 - lr * decay) + update3 * (-lr);
             new_p4.w = p4.w * (1 - lr * decay) + update4 * (-lr);
         }else{
-            // p[global_id] = p[global_id] + update * (-lr) / (1 + lr * decay);
             new_p4.x = p4.x + update1 * (-lr) / (1 + lr * decay);
             new_p4.y = p4.y + update2 * (-lr) / (1 + lr * decay);
             new_p4.z = p4.z + update3 * (-lr) / (1 + lr * decay);
@@ -168,9 +151,9 @@ __global__ void adan_cuda_kernel<float, float>(
 
 void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tensor& exp_avg, 
           at::Tensor& exp_avg_sq, at::Tensor& exp_avg_diff,
-          at::Tensor& pre_g, float beta1, float beta2, float beta3, 
+          at::Tensor& neg_grad, float beta1, float beta2, float beta3, 
           float bias_correction1, float bias_correction2, float bias_correction3_sqrt, 
-          float lr, float decay, float eps, bool no_prox, float grad_scale){
+          float lr, float decay, float eps, bool no_prox, float clip_global_grad_norm){
     // Get tensor size
     int total_size = p.numel();
     AT_ASSERTM(at::cuda::detail::canUse32BitIndexMath(p),
@@ -195,9 +178,9 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
                 p.DATA_PTR<accscalar_t>(),
                 p_copy.numel() ? p_copy.DATA_PTR<scalar_t_0>() : NULL,
                 g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<accscalar_t>(), exp_avg_sq.DATA_PTR<accscalar_t>(),exp_avg_diff.DATA_PTR<accscalar_t>(), 
-                pre_g.DATA_PTR<scalar_t_0>(), 
+                neg_grad.DATA_PTR<scalar_t_0>(), 
                 beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
-                lr, decay, eps, no_prox, grad_scale, total_size
+                lr, decay, eps, no_prox, clip_global_grad_norm, total_size
                 );
             );
     } else {
@@ -213,9 +196,9 @@ void fused_adan_cuda(at::Tensor& p, at::Tensor& p_copy, at::Tensor& g, at::Tenso
                 p.DATA_PTR<scalar_t_0>(),
                 NULL,
                 g.DATA_PTR<scalar_t_0>(), exp_avg.DATA_PTR<scalar_t_0>(), exp_avg_sq.DATA_PTR<scalar_t_0>(),exp_avg_diff.DATA_PTR<scalar_t_0>(), 
-                pre_g.DATA_PTR<scalar_t_0>(), 
+                neg_grad.DATA_PTR<scalar_t_0>(), 
                 beta1, beta2, beta3, bias_correction1, bias_correction2, bias_correction3_sqrt, 
-                lr, decay, eps, no_prox, grad_scale, total_size
+                lr, decay, eps, no_prox, clip_global_grad_norm, total_size
             );
         );
     }

@@ -14,7 +14,7 @@
 #include "ATen/cuda/CUDAContext.h"
 #include "ATen/cuda/detail/IndexUtils.cuh"
 #include "ATen/cuda/Exceptions.h"
-#include "../include/fused_adam_kernel.h"
+#include "../include/fused_adam_kernel.cuh"
 #include "../include/multi_tensor_apply.cuh"
 
 typedef enum {
