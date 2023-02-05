@@ -6,6 +6,8 @@ nvcc_args = ['-maxrregcount=16']
 
 setup(
     name='fused_adan',
+    py_modules=['adan'],
+    install_requires=['torch'],
     ext_modules=[
         CUDAExtension('fused_adan', [
             'pybind_adan.cpp',

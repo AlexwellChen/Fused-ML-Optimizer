@@ -1,3 +1,4 @@
 # ninja log v5
 0	90651	1675417922723550337	/home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adan/build/temp.linux-aarch64-3.6/pybind_adan.o	2ce8c9f12d1090cf
 8	154293	1675421770059212526	/home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adan/build/temp.linux-aarch64-3.6/fused_adan_kernel.o	7007031e77e5566
+68	77630	1675591402507213105	/home/jetson/Desktop/pytorch/Fused-ML-Optimizer/fused_adan/build/temp.linux-aarch64-3.6/pybind_adan.o	2ce8c9f12d1090cf
